@@ -1,0 +1,160 @@
+インスタンスの起動（秘密鍵も作成）
+
+セキュリティーのインバウンドルールにHTTP(Port80)を許可
+Elastic IPの登録し、IPアドレスが変わらないようにする
+
+今回はTera Termを使用
+ホスト名の部分にインスタンスのパブリック IPv4 アドレスを入力し
+ユーザー名「ec2-user」と秘密鍵へパスを入れ
+SSH通信する
+------------------------------------
+vimインストール
+sudo yum install vim -y
+
+docker インストール方法
+sudo yum install -y docker
+
+dockerサービスを起動と自動化
+sudo systemctl start docker
+sudo systemctl enable docker
+sudo usermod -a -G docker ec2-user
+
+
+docker-compose インストール方法
+sudo curl -L "https://github.com/docker/compose/releases/download/1.29.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+sudo chmod +x /usr/local/bin/docker-compose
+
+インストール出来ているかの確認
+docker-compose -v
+---------------------------------------
+次にWinSCPを使い、プログラム等のファイルを入れます
+先程と同じく
+ホスト名にインスタンスのパブリック IPv4 アドレス
+ユーザー名「ec2-user」を入力
+
+パスワードの右下にある「設定」を押し、「認証」の秘密鍵の欄に秘密鍵へパスを入れ
+SSH通信
+
+
+そしたら、「/home/ec2-user/」のパスに入るので
+このままファイルを全部入れます。
+---------------------------------------
+
+Tera Tremに戻り、
+
+起動
+docker-compose up(Ctrl+Cで中止します)
+-------------------------------------------
+
+もしここで、長文のエラー（「エラーメッセージ1.txt」記載）が出た場合は
+
+dockerユーザーをグループに追加
+sudo usermod -aG docker $USER
+
+グループへの変更をアクティブ化
+newgrp docker
+
+以下のコマンドを実行できることを確認します
+docker run hello-world
+
+(参照: https://docs.docker.com/engine/install/linux-postinstall/)
+
+
+それで再度
+docker-compose up
+できるか確認
+-----------------------------------------
+
+問題がなければ、LAMP環境の構築
+
+Apacheのインストール
+sudo yum install httpd
+
+Apacheの起動と自動化
+sudo systemctl start httpd
+sudo systemctl enable httpd
+
+MySQLのンストール
+sudo rpm -ivh http://dev.mysql.com/get/mysql57-community-release-el7-8.noarch.rpm
+sudo yum install mysql-community-server
+
+MySQLの起動と自動化
+sudo systemctl enable mysqld
+sudo systemctl start mysqld
+
+PHP 7.2をインストールするための下準備
+sudo yum install epel-release
+sudo yum install http://rpms.remirepo.net/enterprise/remi-release-7.rpm
+sudo yum install yum-utils
+sudo yum-config-manager --enable remi-php72
+sudo yum update
+
+PHPインストール
+sudo yum install php php-fpm php-mysql php-curl php-gd php-mbstring php-mcrypt php-xml php-xmlrpc
+(参照: https://dawaan.com/installing-lamp-on-centos7/)
+
+それぞれ -v で動くか確認
+
+imageを構築
+docker-compose build
+
+
+----------------------------------------
+次にMySQLを作成
+
+DB techに接続(techはDB名)
+docker exec -it mysql mysql techc
+
+下記のテーブル追加
+----------------------------------------------------------
+CREATE TABLE `bbs_entries` (
+    `id` INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    `user_id` INT UNSIGNED NOT NULL,
+    `body` TEXT NOT NULL,
+    `image_filename` TEXT DEFAULT NULL,
+    `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+----------------------------------------------------------
+CREATE TABLE `user_relationships` (
+    `id` INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    `follower_user_id` INT UNSIGNED NOT NULL,
+    `followee_user_id` INT UNSIGNED NOT NULL,
+    `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+----------------------------------------------------------
+CREATE TABLE `users` (
+    `id` INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    `name` TEXT NOT NULL,
+    `email` TEXT NOT NULL,
+    `password` TEXT NOT NULL,
+    `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+-----------------------------------------------------------
+ALTER TABLE `users` ADD COLUMN icon_filename TEXT DEFAULT NULL;
+
+ALTER TABLE `users` ADD COLUMN introduction TEXT DEFAULT NULL;
+
+ALTER TABLE `users` ADD COLUMN cover_filename TEXT DEFAULT NULL;
+
+ALTER TABLE `users` ADD COLUMN birthday DATE DEFAULT NULL;
+
+----------------------------------------------------------------
+exitでmysqlから戻り、
+docker-compose up
+が動くか確認
+
+今回はdocker-compose.ymlに[tty: true]が追加してあるので
+docker-compose upを動かし続ける必要はありません
+
+なので、今後の起動はこのコマンドでok
+docker-compose restart
+
+これで一通り終わったので
+
+http://EC2インスタンスのIPアドレス/index.html (ファイルへのパス)
+で動くか確認して終了
+
+
+
